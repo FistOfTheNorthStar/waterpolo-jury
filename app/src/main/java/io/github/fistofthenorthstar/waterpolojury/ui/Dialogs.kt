@@ -376,6 +376,7 @@ fun DevicesDialog(vm: ControllerViewModel, links: List<LinkInfo>, onDismiss: () 
                                 if (checked) {
                                     val status = when {
                                         link == null -> "…"
+                                        !link.paired -> "Not paired any more — pair again in Bluetooth settings"
                                         link.connected -> "Connected" + (link.role?.let { " · $it" } ?: "")
                                         else -> "Searching…"
                                     }

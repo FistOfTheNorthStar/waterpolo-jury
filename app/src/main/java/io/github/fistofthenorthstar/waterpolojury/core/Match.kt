@@ -292,8 +292,8 @@ data class MatchState(
     }
 
     fun toDisplay(): DisplayState = DisplayState(
-        whiteName = config.whiteName,
-        blueName = config.blueName,
+        whiteName = config.whiteName.take(24),
+        blueName = config.blueName.take(24),
         whiteScore = score(Team.WHITE),
         blueScore = score(Team.BLUE),
         period = periodLabel,
@@ -301,8 +301,9 @@ data class MatchState(
         shotMs = shotMs,
         running = running,
         breakMs = breakMs,
-        breakLabel = breakLabel,
-        exclusions = exclusions.map { DisplayExclusion(it.team, it.cap, it.remainingMs) },
+        breakLabel = breakLabel.take(40),
+        // Bounded so a snapshot always fits in one Bluetooth message.
+        exclusions = exclusions.take(12).map { DisplayExclusion(it.team, it.cap, it.remainingMs) },
         whiteTimeouts = timeoutsLeft(Team.WHITE),
         blueTimeouts = timeoutsLeft(Team.BLUE),
         hornSeq = hornSeq,
