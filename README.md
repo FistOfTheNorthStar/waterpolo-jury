@@ -1,3 +1,6 @@
+<img width="2752" height="1536" alt="Gemini_Generated_Image_utcpa7utcpa7utcp" src="https://github.com/user-attachments/assets/cc876d7a-4fbb-4881-9c3d-40bbd24c64a1" />
+
+
 # Water Polo Jury
 
 Run a water polo jury table with cheap Android devices linked over Bluetooth:
