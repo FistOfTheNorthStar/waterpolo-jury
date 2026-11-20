@@ -1,4 +1,4 @@
-<img width="2752" height="1536" alt="Gemini_Generated_Image_utcpa7utcpa7utcp" src="https://github.com/user-attachments/assets/cc876d7a-4fbb-4881-9c3d-40bbd24c64a1" />
+<img width="2750" height="1536" alt="Gemini_Generated_Image_aax1qlaax1qlaax1 (1)" src="https://github.com/user-attachments/assets/cfe875a2-9b6c-415f-9cae-7613dce01024" />
 
 
 # Water Polo Jury
