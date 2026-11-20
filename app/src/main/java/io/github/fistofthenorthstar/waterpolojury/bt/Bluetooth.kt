@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
+import java.io.IOException
+import java.io.InputStream
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -14,10 +16,27 @@ import kotlin.concurrent.thread
  * Transport: classic Bluetooth RFCOMM (works on practically every Android tablet).
  * Each display listens; the controller connects out to every selected paired device
  * and pushes newline-delimited JSON snapshots. The display answers once with its role.
+ *
+ * Only the secure socket variants are used: the link is encrypted and both ends must
+ * already be paired, so a stranger at the pool cannot push a fake scoreboard.
  */
 
 val SERVICE_UUID: UUID = UUID.fromString("7d2f4c1e-5b0a-4e7b-9c3d-77a1c0de2801")
 private const val ROLE_PREFIX = "ROLE "
+
+private const val MAX_LINE_BYTES = 16 * 1024
+
+/** Reads one '\n'-terminated line, refusing oversized input. Null at end of stream. */
+private fun InputStream.readBoundedLine(): String? {
+    val buffer = java.io.ByteArrayOutputStream(512)
+    while (true) {
+        val b = read()
+        if (b < 0) return if (buffer.size() == 0) null else buffer.toString("UTF-8")
+        if (b == '\n'.code) return buffer.toString("UTF-8")
+        if (buffer.size() >= MAX_LINE_BYTES) throw IOException("line too long")
+        buffer.write(b)
+    }
+}
 
 data class LinkInfo(val address: String, val name: String, val connected: Boolean, val role: String?)
 
@@ -46,17 +65,20 @@ class DisplayServer(
     private fun run() {
         while (!closed) {
             try {
-                val srv = adapter.listenUsingInsecureRfcommWithServiceRecord("WaterPoloJury", SERVICE_UUID)
+                val srv = adapter.listenUsingRfcommWithServiceRecord("WaterPoloJury", SERVICE_UUID)
                 server = srv
                 val sock = srv.accept()
                 runCatching { srv.close() }
                 socket = sock
+                if (sock.remoteDevice.bondState != BluetoothDevice.BOND_BONDED) {
+                    throw IOException("controller is not a paired device")
+                }
                 onStatus(true)
                 sock.outputStream.write((ROLE_PREFIX + role + "\n").toByteArray())
                 sock.outputStream.flush()
-                val reader = sock.inputStream.bufferedReader()
+                val input = sock.inputStream.buffered()
                 while (!closed) {
-                    val line = reader.readLine() ?: break
+                    val line = input.readBoundedLine() ?: break
                     onLine(line)
                 }
             } catch (_: Exception) {
@@ -103,7 +125,7 @@ class DisplayLink(private val device: BluetoothDevice, private val onChange: () 
     private fun run() {
         while (!closed) {
             try {
-                val sock = device.createInsecureRfcommSocketToServiceRecord(SERVICE_UUID)
+                val sock = device.createRfcommSocketToServiceRecord(SERVICE_UUID)
                 socket = sock
                 // Parallel connection attempts disturb each other on cheap radios.
                 synchronized(connectLock) { sock.connect() }
@@ -112,9 +134,11 @@ class DisplayLink(private val device: BluetoothDevice, private val onChange: () 
                 onChange()
                 thread(name = "link-read-$address", isDaemon = true) {
                     try {
-                        sock.inputStream.bufferedReader().forEachLine { line ->
+                        val input = sock.inputStream.buffered()
+                        while (true) {
+                            val line = input.readBoundedLine() ?: break
                             if (line.startsWith(ROLE_PREFIX)) {
-                                role = line.removePrefix(ROLE_PREFIX).trim()
+                                role = line.removePrefix(ROLE_PREFIX).trim().take(16)
                                 onChange()
                             }
                         }
